@@ -1,0 +1,10 @@
+0c28d313e79218cd225fbbf06be5db9b *DESCRIPTION
+a5dd102b7a5e34880076c8b99564d371 *LICENSE
+2509e8f9fc02108933899ecc11d9b05b *R/reglogit.R
+398a74ae0ce1e1f3a8ae78cbdace4e84 *R/zzz.R
+8e06ca762ed214d4249dfa8f7766a608 *data/pima.rda
+a1edf4c275302c9ccade67ff77de741e *man/pima.Rd
+96b0745ca668472ae6dd120114b558b7 *man/reglogit-internal.Rd
+e81afbb2a4e8e4cc03941cd1a6129e93 *man/reglogit-package.Rd
+ed23544af0645348e905c835a30c1fd2 *man/reglogit.Rd
+e1f0d0ef951df5231c95b8e3bf333d0b *src/gibbs.c
