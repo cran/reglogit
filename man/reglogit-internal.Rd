@@ -12,6 +12,9 @@
 \alias{my.rinvgauss}
 \alias{calc.lpost}
 \alias{preprocess}
+\alias{z.dRUM}
+\alias{beta.dRUM}
+\alias{gibbs.dRUM}
 \title{Internal reglogit Functions}
 \description{
   Internal \pkg{reglogit} functions

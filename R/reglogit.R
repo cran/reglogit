@@ -14,13 +14,15 @@ draw.beta <- function(X, z, lambda, omega, nu, sigma,
     if(nu < 0 && !is.null(sigma)) n <- 1
     
     ## covariance of the conditional
-    tXLi <- t(X) %*% diag(1/lambda)
+    ## tXLi <- t(X) %*% diag(1/lambda)
+    tXLi <- t(X * (1/lambda))
+    Bi <- tXLi %*% X
     if(nu > 0) {
-      Bi <- (kp/nu)^2 * 1/(sigma^2 * omega)
-      if(ncol(X) == length(sigma) + 1) Bi <- c(0, Bi)
-      Bi <- diag(Bi)
-    } else Bi <- 0
-    B <- solve(Bi + tXLi %*% X)
+      bdi <- (kp/nu)^2 * 1/(sigma^2 * omega)
+      if(ncol(X) == length(sigma) + 1) bdi <- c(0, bdi)
+      diag(Bi) <- diag(Bi) + bdi
+    } ## else Bi <- 0
+    B <- solve(Bi) # + tXLi %*% X)
 
     ## mean of the conditional
     if(is.null(z)) { ## z=0 PDF representation
@@ -32,7 +34,7 @@ draw.beta <- function(X, z, lambda, omega, nu, sigma,
 
       ## special handling in Binomial case
       if(length(kappa == 1)) uk <- apply(X*kappa, 2, sum)
-      else  uk <- t(kappa) %*% X
+      else uk <- t(kappa) %*% X
       b <- B %*% uk
 
     } else ## CDF representation
@@ -216,7 +218,7 @@ calc.lpost <- function(yX, beta, nu, kappa, kp, sigma,
     ## for beta
     if(nu > 0) lprior <- - kp*p*log(nu) - (kp/nu) * sum(abs(beta/sigma))
     ## if(nu > 0) lprior <- - p*log(nu) - (kp/nu) * sum(abs(beta/sigma))
-    else if(!is.null(sigma)) lprior <- - sum((kp*beta/sigma)^2)
+    ## else if(!is.null(sigma)) lprior <- - sum((kp*beta/sigma)^2)
     else lprior <- 0
 
     ## inverse gamma prior for nu
@@ -255,7 +257,8 @@ preprocess <- function(X, y, N, flatten, kappa)
       ypm1[y == 0] <- -1
       
       ## create y *. X
-      yX <- diag(ypm1) %*% X
+      ## yX <- diag(ypm1) %*% X
+      yX <- X * ypm1 ## diag(ypm1) %*% X
       
     } else {  ## unflattened binomial case
       
@@ -337,6 +340,7 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
   ## check for agreement between nu and sigma
   if(is.null(sigma) && nu > 0)
     stop("must define sigma for regularization")
+  else if(nu == 0) sigma <- NULL
 
   ## initial values of the regularization latent variables
   if(nu > 0) {  ## omega lasso/L1 latents

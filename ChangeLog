@@ -1,0 +1,8 @@
+1.1 (18 Dec 2011)
+---
+
+added dRUM comparisons as examples
+
+sped up code to not use diag(1/lambda)
+
+Minor fixes for Brian Ripley

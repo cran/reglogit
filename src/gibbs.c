@@ -254,7 +254,7 @@ double draw_lambda_zz_slice(double lambda_old, double xbeta,
     /* sanity print for poor rejection rate */
     cnt++;
     if(cnt % 1000000 == 0) 
-      fprintf(stderr, "slice=%d, xbeta=%g, lambda=%g, u=%g, kappa=%g\n", 
+      warning("slice=%d, xbeta=%g, lambda=%g, u=%g, kappa=%g\n", 
 	      cnt, xbeta, lambda_old, u, kappa);
 
   } while(p <= u);
@@ -300,7 +300,7 @@ double draw_lambda_zz_vaduva(double xbeta, double kappa, int kmax)
     /* sanity print for poor rejection rate */
     cnt++;
     if(cnt % 100000 == 0) 
-      fprintf(stderr, "vaduva=%d, x=%g, y=%g, xbeta=%g, kappa=%g, INv=%g\n",
+      warning("vaduva=%d, x=%g, y=%g, xbeta=%g, kappa=%g, INv=%g\n",
 	      cnt, lambda, y, xbeta, kappa, INv);
 
   } while(lambda < y);

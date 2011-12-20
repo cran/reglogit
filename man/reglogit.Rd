@@ -191,11 +191,15 @@ out10 <- reglogit(T, y, X, kappa=10, nu=6, nup=NULL, bstart=bstart,
 
 ## plot the posterior distribution of the coefficients
 par(mfrow=c(1,2))
-burnin <- (1:(T/10)) 
-boxplot(out10$beta[-burnin,], main="nu=10, kappa=1", ylab="posterior",
-        xlab="coefficients", bty="n", names=c("mu", paste("b", 1:8, sep="")))
+boxplot(out6$beta[-burnin,], main="nu=6, kappa=1",  ylab="posterior",
+        xlab="coefficients", bty="n",  names=c("mu", paste("b", 1:8, sep="")))
+abline(h=0, lty=2) 
+points(bstart, col=2, pch=17)
+points(out6$map$beta, pch=19, col=3)
+legend("topright", c("MLE", "MAP"), col=2:3, pch=c(17,19))
+boxplot(out10$beta[-burnin,], main="nu=6, kappa=10",  ylab="posterior",
+        xlab="coefficients", bty="n",  names=c("mu", paste("b", 1:8, sep="")))
 abline(h=0, lty=2)
-
 ## add in GLM fit and MAP with legend
 points(bstart, col=2, pch=17)
 points(out10$map$beta, pch=19, col=3)
