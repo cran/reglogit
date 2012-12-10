@@ -88,7 +88,7 @@ reglogit(T, y, X, N = NULL, flatten = FALSE, sigma = 1, nu = 1,
   variables.  Otherwise a vector of ones is used.
 }
   \item{nup}{
-  prior parameters \code{=list(a, b)} for the Gamma distribution
+  prior parameters \code{=list(a, b)} for the inverse Gamma distribution
   prior for \code{nu}, or \code{NULL}, which causes \code{nu} to be fixed
 }
   \item{method}{
@@ -210,6 +210,7 @@ legend("topright", c("MLE", "MAP"), col=2:3, pch=c(17,19))
 ## now some binomial data
 ##
 
+\dontrun{
 ## synthetic data generation
 library(boot)
 N <- rep(20, 100)
@@ -237,6 +238,7 @@ points(out$map$beta, pch=19, col=3)
 legend("topright", c("MLE", "MAP", "truth"), col=2:4, pch=c(17,19,16))
 
 ## also try specifying a larger kappa value to pin down the MAP
+}
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
