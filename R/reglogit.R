@@ -78,10 +78,11 @@ draw.nu <- function(beta, sigma, kp, nup=list(a=0, b=0))
 ## draw the latent z-values given beta, y, and the
 ## latent lambdas
 
-draw.z <- function(X, beta, lambda, kappa)
+draw.z <- function(X, beta, lambda, kappa, C=NULL)
 {
   n <- nrow(X)
   xbeta <- X %*% beta
+  if(!is.null(C)) xbeta <- xbeta - log(C)
   
   return(.C("draw_z_R",
             n = as.integer(n),
@@ -102,7 +103,7 @@ draw.z <- function(X, beta, lambda, kappa)
 
 draw.omega <- function(beta, sigma, nu, kp)
   {
-    if(nu < 0) stop("nu must be positive")
+    if(any(nu < 0)) stop("nu must be positive")
 
     ## deal wth intercept in prior?
     if(length(sigma) == length(beta) - 1) beta <- beta[-1]
@@ -140,7 +141,7 @@ draw.logit.prior <- function(n, kappa, kmax=442)
 ## implement the logit link, via Metropolis-Hastings
 
 draw.lambda <- function(X, beta, lambda, kappa, kmax,
-                        zzero=TRUE, thin=kappa, method)
+                        zzero=TRUE, thin=kappa, method, C=NULL)
   {
     ## method ignored by the C-side if zzero = FALSE
     if(method=="vaduva") method <- 1
@@ -149,6 +150,7 @@ draw.lambda <- function(X, beta, lambda, kappa, kmax,
 
     ## calculate X * beta
     xbeta <- X %*% beta
+    if(!is.null(C)) xbeta <- xbeta - log(C)
     n <- length(xbeta)
 
     ## call C code
@@ -231,6 +233,74 @@ calc.lpost <- function(yX, beta, nu, kappa, kp, sigma,
   }
 
 
+## calc.mlpost:
+##
+## calculate the log posterior probability of the
+## parameters in argument, for multinomial reglogit
+
+calc.mlpost <- function(yX, beta, nu, kappa, kp, sigma,
+                       nup=list(a=0, b=0))
+  {
+    ## deal with vector beta
+    if(is.null(dim(beta))) beta <- matrix(beta, ncol=dim(yX)[3])
+    
+    ## likelihood part
+    if(!is.null(dim(kappa))) kappa <- apply(kappa, 1, sum)
+    Cs <- rep(1, nrow(yX))
+    Qm1 <- ncol(beta)
+    for(q in 1:Qm1) Cs <- Cs + exp(-drop(yX[,,q] %*% beta[,q]))
+    llik <- - sum(kappa*log(Cs))
+
+    ## prior part
+    
+    ## deal with intercept in prior
+    p <- length(sigma)
+    if(p == nrow(beta) - 1) beta <- beta[-1,,drop=FALSE]
+
+    ## for beta
+    lprior <- 0.0
+    if(any(nu > 0))
+      for(q in 1:Qm1) {
+        lprior <- lprior - kp*p*log(nu[q]) - (kp/nu[q]) * sum(abs(beta[,q]/sigma))
+      }
+    ## if(nu > 0) lprior <- - p*log(nu) - (kp/nu) * sum(abs(beta/sigma))
+    ## else if(!is.null(sigma)) lprior <- - sum((kp*beta/sigma)^2)
+    else lprior <- 0
+
+    ## inverse gamma prior for nu
+    if(!is.null(nup))
+      for(q in 1:Qm1) {
+      ## lprior <- lprior - kp*(2*(nup$a+1)*log(nu) + nup$b/(nu^2))
+        lprior <- lprior - kp*((nup$a+1)*log(nu[q]) + nup$b/nu[q])
+      }
+
+    ## return log posterior
+    return(llik + lprior)
+  }
+
+
+## calc.Cs
+##
+## for calculating the sum of the likelihood contributions
+## for the Q-2 other reglogits in the multinomial implementation
+## of Holmes and Held
+
+## maybe make C version
+calc.Cs <- function(yX, beta, lambda, kappa)
+  {
+    Qm1 <- dim(yX)[3]
+    if(ncol(kappa) != Qm1) stop("wups")
+    Cs <- matrix(1, nrow=nrow(lambda), ncol=Qm1)
+    for(q in 1:Qm1) {
+      for(nq in setdiff(1:Qm1, q)) {
+        Cs[,q] <- Cs[,q] + exp(yX[,,nq] %*% beta[,nq] -
+          0.5*(1-drop(kappa[,nq]))*lambda[,nq])
+      }
+    }
+    return(Cs)
+  }
+
+
 ## preprocess:
 ##
 ## pre-process the X and y and kappa data depending on
@@ -243,22 +313,22 @@ preprocess <- function(X, y, N, flatten, kappa)
       
       if(flatten) { ## flattened binomial case
         if(is.null(N)) stop("flatten only applies for N != NULL")
+        if(any(y > N)) stop("must have y <= N")
         ye <- NULL
         Xe <- NULL
         for(i in 1:length(N)) {
           Xe <- rbind(Xe, matrix(rep(X[i,], N[i]), nrow=N[i], byrow=TRUE))
           ye <- c(ye, rep(1, y[i]), rep(0, N[i]-y[i]))
         }
-        y <- ye; X <- Xe;
-      }
+        y <- ye; X <- Xe
+      } else if(any(y > 1)) stop("must have y in {0,1}")
 
       ## create y in {-1,+1}
       ypm1 <- y
       ypm1[y == 0] <- -1
       
       ## create y *. X
-      ## yX <- diag(ypm1) %*% X
-      yX <- X * ypm1 ## diag(ypm1) %*% X
+      yX <- X * ypm1 
       
     } else {  ## unflattened binomial case
       
@@ -274,13 +344,87 @@ preprocess <- function(X, y, N, flatten, kappa)
       yX <- rbind(X, -X)[knz,]
       y <- c(rep(1,n),rep(0,n))[knz]
       kappa <- kappa[knz]
-      n <- length(kappa)
     }
 
     ## return the data we're going to work with
     return(list(yX=yX, y=y, kappa=kappa))
   }
 
+
+## mpreprocess:
+##
+## pre-process the X and y and kappa data depending on
+## how binomial responses might be processed
+
+mpreprocess <- function(X, y, flatten, kappa)
+  {
+    ## process y's and set up design matrices
+
+    ## sanity check
+    if(is.null(dim(y))) stop("should have matrix y")
+
+    ## dumb initialization
+    yX <- ynew <- NULL
+    Q <- ncol(y)
+
+    ## check if there is a need to flatten
+    N <- apply(y, 1, sum)
+    
+    if(max(N) == 1 || flatten) { ## flattened binomial case
+
+      for(q in 2:Q) { ## for each label but the last
+
+        if(flatten) {
+          ye <- Xe <- NULL
+          for(i in 1:nrow(y)) { ## for each obs
+            Xe <- rbind(Xe, matrix(rep(X[i,], N[i], nrow=N[i], byrow=TRUE)))
+            ye <- c(ye, rep(1, y[i,q]), rep(0, N[i]-y[i,q]))
+          }
+          y[,q] <- ye; X <- Xe
+        } 
+        
+        ## create matrix y in {-1,+1}
+        ypm1 <- y[,q]
+        ypm1[y[,q] == 0] <- -1
+        
+        ## create y *. X
+        if(is.null(yX)) {
+          yX <- array(NA, dim=c(nrow(X), ncol(X), Q-1))
+        } else if(nrow(X) != nrow(yX[,,q-1])) stop("dim problem")
+
+        ## populate yX
+        yX[,,q-1] <- X * ypm1
+      }
+      knew <- matrix(kappa, nrow=1, ncol=Q-1)
+      
+    } else {  ## unflattened multinomial case
+
+      for(q in 2:Q) { ## for each label but the last
+      
+        ## construct yX and re-use kappa
+        n <- nrow(y)
+        kk <- kappa*c(y[,q], N-y[,q])
+        knz <- kk != 0
+
+        ## create y *. X
+        if(is.null(yX)) {
+          ne <- sum(knz)
+          yX <- array(NA, dim=c(ne, ncol(X), Q-1))
+          ynew <- matrix(NA, nrow=ne, ncol=Q-1)
+          knew <- matrix(NA, nrow=ne, ncol=Q-1)
+        } else if(sum(knz) != nrow(yX[,,q])) stop("dim problem")
+
+        ## populate yX
+        yX[,,q-1] <- rbind(X, -X)[knz,]
+        ynew[,q-1] <- c(rep(1,n), rep(0,n))[knz]
+        knew[,q-1] <- kk[knz]
+      }
+      y <- ynew
+    }
+
+    ## return the data we're going to work with
+    return(list(yX=yX, y=y, kappa=knew))
+  }
 
 
 ## reglogit:
@@ -295,6 +439,13 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
                   bstart=NULL, lt=NULL, nup=list(a=2, b=0.1),
                   method=c("MH", "slice", "vaduva"), verb=100)
 {
+  ## checking T
+  if(length(T) != 1 || !is.numeric(T) || T < 1)
+    stop("T should be a positive integer scalar")
+  
+  ## check ys
+  if(any(y < 0)) stop("ys must be non-negative integers")
+  
   ## getting and checking data size
   m <- ncol(X)
   n <- length(y)
@@ -346,7 +497,7 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
   if(nu > 0) {  ## omega lasso/L1 latents
     omega <- matrix(NA, nrow=T, ncol=m)
     ot <- omega[1,] <- 1
-    omega[,1] <- 1
+    ## omega[,1] <- 1  ## Not sure why this is here ???
   } else { omega <- NULL; ot <- rep(1, m) }
 
   ## save the original kappa
@@ -421,9 +572,277 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
   if(normalize) r$normx <- normx
   if(!zzero) r$z <- z
   if(!is.null(nus)) r$nu <- nus
+  r$icept <- icept
 
   ## assign a class to the object
   class(r) <- "reglogit"
   
   return(r)
 }
+
+
+## regmlogit:
+##
+## function for Gibbs sampling from the a logistic
+## (multinomial) regression model, sigma=NULL and
+## nu < 0 indicates no prior
+
+regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
+                      kappa=1, icept=TRUE, normalize=TRUE,
+                      zzero=TRUE, powerprior=TRUE, kmax=442,
+                      bstart=NULL, lt=NULL, nup=list(a=2, b=0.1),
+                      method=c("MH", "slice", "vaduva"), verb=100)
+{
+  ## checking T
+  if(length(T) != 1 || !is.numeric(T) || T < 1)
+    stop("T should be a positive integer scalar")
+  
+  ## getting and checking data size 
+  m <- ncol(X)
+  if(is.null(dim(y))) { ## convert y into a matrix
+    if(any(y <= 0)) stop("vector ys must be positive integer class labels")
+    ymat <- matrix(0, nrow=length(y), ncol=max(y))
+    for(i in 1:nrow(ymat)) ymat[i,y[i]] <- 1  ## COULD DO THIS FASTER
+    y <- ymat
+  }
+
+  ## check matrix form of y
+  if(any(apply(y, 1, function(x) { any(x < 0) || sum(x) <= 0 })))
+    stop("matrix ys must have at least one non-zero in each row")
+  Q <- ncol(y)
+  n <- nrow(y)
+  if(n != nrow(X)) stop("dimension mismatch")
+  
+  ## check the method argument
+  method <- match.arg(method)
+  
+  ## design matrix processing
+  X <- as.matrix(X)
+  if(normalize) {
+    one <- rep(1, n)
+    normx <- sqrt(drop(one %*% (X^2)))
+    if(any(normx == 0)) stop("degenerate X cols")
+    X <- as.matrix(as.data.frame(scale(X, FALSE, normx)))
+  } else normx <- rep(1, ncol(X))
+  
+  ## init sigma
+  if(length(sigma) == 1) sigma <- rep(sigma, ncol(X))
+  
+  ## add on intecept term?
+  if(icept) {
+    X <- cbind(1, X)
+    normx <- c(1, normx)
+  }
+  
+  ## put the starting beta value on the right scale
+  if(!is.null(bstart)) {
+    if(is.null(dim(bstart))) {
+      bstart <- matrix(bstart, ncol=Q-1)
+      if(nrow(bstart) != m+icept) stop("bstart should be (m+icept)x(Q-1) matrix")
+    }
+    if(normalize) bstart <- apply(bstart, 2, function(x, n) x*n, n=normx)
+  } else if(is.null(bstart)) bstart <- matrix(rnorm((Q-1)*(m+icept)), ncol=Q-1)
+  
+  ## allocate beta, and set starting position
+  beta <- array(NA, dim=c(T, m+icept, Q-1))
+  beta[1,,] <- bstart
+  map <- list(beta=beta[1,,])
+
+  ## check nu
+  if(length(nu) == 1) nu <- rep(nu, Q-1)
+  if(length(nu) != Q-1)
+    stop("nu must be scalar or (Q-1)-vector")
+  
+  ## check if we are inferring nu
+  if(!is.null(nup)) {
+    nus <- matrix(NA, nrow=T, ncol=Q-1)
+    ## must infer nu for all q in 1:(Q-1), could change later
+    if(any(nu <= 0)) stop("all starting nu must be positive")
+    nus[1,] <- nu
+  } else nus <- NULL
+  
+  ## check for agreement between nu and sigma
+  if(is.null(sigma) && any(nu > 0))
+    stop("must define sigma for regularization")
+  else if(all(nu == 0)) sigma <- NULL
+  
+  ## initial values of the regularization latent variables
+  if(all(nu > 0)) {  ## omega lasso/L1 latents
+    omega <- array(NA, dim=c(T, m, Q-1))
+    omega[1,,] <- 1; ot <- matrix(omega[1,,], ncol=Q-1)
+  } else { omega <- NULL; ot <- matrix(1, nrow=m, ncol=Q-1) }
+  
+  ## save the original kappa
+  if(powerprior) kp <- kappa
+  else kp <- 1
+  
+  ## process y's and set up design matrices
+  nd <- mpreprocess(X, y, flatten, kappa)
+  yX <- nd$yX; y <- nd$y; kappa <- nd$kappa
+  n <- dim(yX)[1]
+  
+  ## initialize lambda latent variables
+  lambda <- array(NA, dim=c(T, n, Q-1))
+  if(is.null(lt)) lt <- matrix(1, nrow=n, ncol=Q-1)
+  map$lambda <- lambda[1,,] <- lt
+  
+  ## initial values for the logit latents
+  if(!zzero) {
+    z <- array(NA, dim=c(T, n, Q-1))
+    z[1,,] <- zt <- y
+  } else { z <- zt <- NULL }
+  
+  ## allocate and initial log posterior calculation
+  lpost <- matrix(NA, nrow=T, ncol=Q-1)
+  map$lpost <- lpost[1,] <- 
+    calc.mlpost(yX, map$beta, nu, kappa, kp, sigma, nup)
+  if(!is.null(nus)) map$nu <- nu
+
+  ## Gibbs sampling rounds
+  for(t in 2:T) {
+    
+    ## progress meter
+    if(t %% verb == 0) cat("round", t, "\n")
+
+    for(q in 1:(Q-1)) {
+
+      ## calculate Cs
+      Cs <- calc.Cs(yX, beta[t-1,,], lt, kappa)
+      
+      ## if regularizing, draw the latent omega values
+      if(all(nu > 0))
+        ot[,q] <- omega[t,,q] <- draw.omega(beta[t-1,,q], sigma, nu, kp)
+      
+      ## if logistic, draw the latent lambda values
+      lt[,q] <- lambda[t,,q] <-
+        draw.lambda(yX[,,q], beta[t-1,,q], lt[,q], kappa[,q], kmax, zzero,
+                    method=method, C=Cs[,q])
+
+      ## draw the latent z values
+      if(!zzero) zt[,q] <- z[t,,q] <- draw.z(yX[,,q], beta[t-1,,q], lt[,q], kappa,
+                                             C=Cs[,q])
+      
+      ## draw the regression coefficients
+      beta[t,,q] <- draw.beta(yX[,,q], zt[,q], lt[,q], ot[,q], nu[q],
+                              sigma, kappa[,q], kp, method=method)
+      
+      ## maybe draw samples from nu
+      if(!is.null(nus)) nu[q] <- nus[t,q] <- draw.nu(beta[t,,q], sigma, kp, nup)
+    }
+
+    ## calculate the posterior probability to find the map
+    lpost[t] <- calc.mlpost(yX, beta[t,,], nu, kappa, kp, sigma, nup)
+    
+    ## update the map
+    if(lpost[t] > map$lpost) {
+      map <- list(beta=beta[t,,], lpost=lpost[t], lambda=lambda[t,,])
+      if(!is.null(nus)) map$nu <- nus[t,]
+    }
+      
+  }
+  
+  ## un-normalize
+  if(normalize) {
+    for(q in 1:(Q-1)) {
+      beta[,,q] <- as.matrix(as.data.frame(scale(beta[,,q], FALSE, scale=normx)))
+      map$beta[,q] <- map$beta[,q]/normx
+    }
+  }     
+  
+  ## construct the return object
+  r <- list(X=X, y=y, beta=beta, lambda=lambda, lpost=lpost,
+            map=map, kappa=kappa)
+  if(all(nu > 0)
+     ) r$omega <- omega
+  if(normalize) r$normx <- normx
+  if(!zzero) r$z <- z
+  if(!is.null(nus)) r$nu <- nus
+  r$icept <- icept
+  
+  ## assign a class to the object
+  class(r) <- "regmlogit"
+  
+  return(r)
+}
+
+## predict.reglogit:
+##
+## prediction method for binary regularized logistic
+## regression
+
+predict.reglogit <- function(object, XX,
+                             burnin=round(0.1*nrow(object$beta)),
+                             ...)
+  {
+    ## check XX
+    if(object$icept) XX <- cbind(1, XX)
+    if(ncol(XX) != ncol(object$X)) stop("XX dims don't match")
+
+    ## check burnin
+    if(length(burnin) != 1 || burnin < 0)
+      stop("burnin must be a positive scalar")
+    if(burnin+1 >= nrow(object$beta))
+      stop("burnin too big; >= T-1 samples")
+
+    ## extract beta
+    beta <- object$beta[-(1:burnin),]
+
+    ## calculate 1/(1+exp(-X %*% beta))
+    probs <- 1-plogis(0, XX %*% t(beta))
+
+    ## normalize and average over MCMC samples
+    mprobs <- rowMeans(probs)
+
+    ## get point-predictions and variance estimates
+    pc <- round(mprobs)
+    ent <- - mprobs * log(mprobs) - (1-mprobs)*log(1-mprobs)
+
+    return(list(p=probs, mp=mprobs, c=pc, ent=ent))
+  }
+
+
+
+## predict.regmlogit:
+##
+## prediction method for multinomial regularized logistic
+## regression
+
+predict.regmlogit <- function(object, XX,
+                              burnin=round(0.1*dim(object$beta)[1]),
+                              ...)
+  {
+    ## check XX
+    if(object$icept) XX <- cbind(1, XX)
+    if(ncol(XX) != ncol(object$X)) stop("XX dims don't match")
+
+    ## check burnin
+    if(length(burnin) != 1 || burnin < 0)
+      stop("burnin must be a positive scalar")
+    if(burnin+1 >= dim(object$beta)[1])
+      stop("burnin too big; >= T-1 samples")
+
+    ## extract beta
+    beta <- object$beta[-(1:burnin),,,drop=FALSE]
+
+    ## calculate exp(X %*% beta)
+    Q <- dim(beta)[3]+1
+    probs <- array(1, dim=c(nrow(XX), dim(beta)[1], Q))
+    psum <- matrix(1, nrow=nrow(XX), ncol=dim(beta)[1])
+    for(q in 1:(Q-1)) {
+      probs[,,q+1] <- exp(XX %*% t(beta[,,q]))
+      psum <- psum + probs[,,q+1]
+    }
+
+    ## normalize and average over MCMC samples
+    mprobs <- matrix(NA, nrow=nrow(XX), ncol=Q)
+    for(q in 1:Q) {
+      probs[,,q] <- probs[,,q]/psum
+      mprobs[,q] <- rowMeans(probs[,,q])
+    }
+
+    ## get point-predictions and variance estimates
+    pc <- apply(mprobs, 1, which.max)
+    ent <- apply(mprobs, 1, function(p) -sum(p * log(p)) )
+
+    return(list(p=probs, mp=mprobs, c=pc, ent=ent))
+  }

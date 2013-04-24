@@ -1,11 +1,12 @@
 \name{reglogit}
 \alias{reglogit}
+\alias{regmlogit}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 Gibbs sampling for regularized logistic regression
 }
 \description{
-Regularized logistic regression
+Regularized (multinomial) logistic regression
 by Gibbs sampling implementing subtly different 
 MCMC schemes with varying efficiency depending on the data type 
 (binary v. binomial, say) and the desired estimator (regularized maximum
@@ -18,14 +19,20 @@ reglogit(T, y, X, N = NULL, flatten = FALSE, sigma = 1, nu = 1,
       powerprior = TRUE, kmax = 442, bstart = NULL, lt = NULL, 
       nup = list(a = 2, b = 0.1), method = c("MH", "slice", "vaduva"), 
       verb = 100)
+regmlogit(T, y, X, flatten=FALSE, sigma=1, nu=1, kappa=1, icept=TRUE, 
+      normalize=TRUE, zzero=TRUE, powerprior=TRUE, kmax=442,
+      bstart=NULL, lt=NULL, nup=list(a=2, b=0.1),
+      method=c("MH", "slice", "vaduva"), verb=100)
 }
 \arguments{
   \item{T}{
   a positive integer scalar specifying the number of MCMC rounds
 }
   \item{y}{
-  \code{logical} classification labels for Bernoulli data, or counts
-  for Binomial data.  For the latter, \code{N} must also be specified
+  \code{reglogit} requires \code{logical} classification labels for Bernoulli 
+  data, or countsfor Binomial data; for the latter, \code{N} must also be specified.
+  \code{regmlogit} requires positive integer class labeels in \code{1:C} where
+  \code{C} is the number of classes.
 }
   \item{X}{
   a design \code{matrix} of predictors
@@ -105,14 +112,15 @@ reglogit(T, y, X, N = NULL, flatten = FALSE, sigma = 1, nu = 1,
 }
 \details{
 
-  This is the main function in the package.  It supports an omnibus
+  These are the main functions in the package.  They support an omnibus
   framework for simulation-based regularized logistic regression.  The
   default arguments invoke a Gibbs sampling algorithm to sample from the
-  posterior predictive distribution of a logistic regression model with
+  posterior distribution of a logistic regression model with
   lasso-type (double-exponential) priors.  See the paper by Gramacy \&
-  Polson (2010) for details.  Both cdf and pdf implementations are
+  Polson (2012) for details.  Both cdf and pdf implementations are
   provided, which use slightly different latent variable
-  representations, resulting in slightly different Gibbs samplers.
+  representations, resulting in slightly different Gibbs samplers.  These
+  methods extend the un-regularized methods of Holmes \& Held (2006)
 
   The \code{kappa} parameter facilitates simulated annealing (SA)
   implementations in order to help find the MAP, and other point
@@ -120,10 +128,18 @@ reglogit(T, y, X, N = NULL, flatten = FALSE, sigma = 1, nu = 1,
   However, it is easy to string calls to this function, using the
   outputs from one call as inputs to another, in order to establish a SA
   schedule for increasing kappa values.
+
+  The \code{regmlogit} function is a wrapper around the Gibbs sampler
+  inside \code{reglogit}, invoking \code{C-1} linked chains for \code{C}
+  classes, extending the polychotomous regression scheme outlined by 
+  Holmes \& Held (2006).  For an example with \code{regmlogit}, see
+  \code{\link{predict.regmlogit}}
 }
 \value{
-The output is a \code{list} object of type \code{"reglogit"}
-containing a subset of the following fields
+The output is a \code{list} object of type \code{"reglogit"} or 
+\code{"regmlogit"} containing a subset of the following fields;
+for \code{"regmlogit"} everyhing is expanded by one dimension into
+an \code{array} or \code{matrix} as appropriate.
 
  \item{X }{ the input design \code{matrix}, possible adjusted by
  normalization or intercept }
@@ -144,14 +160,18 @@ containing a subset of the following fields
 }
 \references{
 R.B. Gramacy, N.G. Polson. \dQuote{Simulation-based regularized
-  logistic regression}. (2010); arXiv:1005.3430;
-\url{http://arxiv.org/abs/1005.3430}
+  logistic regression}. (2012) Bayesian Analysis, 7(3), p567-590; 
+  arXiv:1005.3430; \url{http://arxiv.org/abs/1005.3430}
+
+C. Holmes, K. Held (2006). \dQuote{Bayesian Auxilliary Variable Models for
+   Binary and Multinomial Regression}. Bayesian Analysis, 1(1), p145-168. 
 }
 \author{
 Robert B. Gramacy \email{rbgramacy@chicagobooth.edu}
 }
 
 \seealso{
+\code{\link{predict.reglogit}}, \code{\link{predict.regmlogit}}, 
 \code{\link[monomvn]{blasso}} and \code{\link[monomvn]{regress}}
 }
 \examples{
@@ -183,6 +203,16 @@ abline(h=0, lty=2)
 points(bstart, col=2, pch=17)
 points(out6$map$beta, pch=19, col=3)
 legend("topright", c("MLE", "MAP"), col=2:3, pch=c(17,19))
+
+## simple prediction
+p6 <- predict(out6, XX=X)
+## hit rate
+mean(p6$c == y)
+
+##
+## for a polychotomous example, with prediction, 
+## see ? predict.regmlogit
+##
 
 \dontrun{
 ## now with kappa=10

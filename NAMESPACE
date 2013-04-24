@@ -10,3 +10,7 @@ import(
   mvtnorm,
   boot
 )
+
+# S3
+S3method(predict, reglogit)
+S3method(predict, regmlogit)

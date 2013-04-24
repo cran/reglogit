@@ -5,7 +5,7 @@
 Simulation-based Regularized Logistic Regression
 }
 \description{
-Regularized logistic regression
+Regularized (polychotomous) logistic regression
 by Gibbs sampling. The package implements subtly different 
 MCMC schemes with varying efficiency depending on the data type 
 (binary v. binomial, say) and the desired estimator (regularized maximum

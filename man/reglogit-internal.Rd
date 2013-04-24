@@ -15,6 +15,9 @@
 \alias{z.dRUM}
 \alias{beta.dRUM}
 \alias{gibbs.dRUM}
+\alias{calc.Cs}
+\alias{calc.mlpost}
+\alias{mpreprocess}
 \title{Internal reglogit Functions}
 \description{
   Internal \pkg{reglogit} functions
