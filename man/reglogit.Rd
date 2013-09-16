@@ -18,12 +18,12 @@ reglogit(T, y, X, N = NULL, flatten = FALSE, sigma = 1, nu = 1,
       kappa = 1, icept = TRUE, normalize = TRUE, zzero = TRUE, 
       powerprior = TRUE, kmax = 442, bstart = NULL, lt = NULL, 
       nup = list(a = 2, b = 0.1), method = c("MH", "slice", "vaduva"), 
-      save.latents = FALSE, sparse = FALSE, verb = 100)
+      save.latents = FALSE, verb = 100)
 regmlogit(T, y, X, flatten = FALSE, sigma = 1, nu = 1, kappa = 1, 
       icept=TRUE, normalize = TRUE, zzero = TRUE, powerprior = TRUE, 
       kmax = 442, bstart = NULL, lt = NULL, nup = list(a=2, b=0.1),
       method = c("MH", "slice", "vaduva"), save.latents = FALSE, 
-      sparse = FALSE, verb=100)
+      verb=100)
 }
 \arguments{
   \item{T}{
@@ -36,7 +36,11 @@ regmlogit(T, y, X, flatten = FALSE, sigma = 1, nu = 1, kappa = 1,
   \code{C} is the number of classes.
 }
   \item{X}{
-  a design \code{matrix} of predictors
+  a design \code{matrix} of predictors; can be a typical (dense) \code{matrix}
+  or a sparse \code{\link{Matrix}} object.  When the design matrix
+  is sparse (and is stored sparsely), this can produce a ~3x-faster execution via
+  a more efficient update for the beta parameter.  But when it is not sparse
+  (but is stored sparsely) the execution could be much slower
 }
   \item{N}{
   an optional integer vector of total numbers of replicate trials 
@@ -114,11 +118,6 @@ regmlogit(T, y, X, flatten = FALSE, sigma = 1, nu = 1, kappa = 1,
   a progress statement is printed.  Giving \code{verb = 0} causes no
   statements to be printed
 }
-\item{sparse}{ a scalar \code{logical} indicating whether or not the design
-matrix \code{X} should be treated as a sparse \code{\link{Matrix}} object
-for the purposes of Gibbs-sampling coefficient values.  When the design matrix
-is sparse, this can produce a ~3x-faster execution.  But when it is not sparse
-the execution could be much slower }
 }
 \details{
 
@@ -200,7 +199,7 @@ fit.logit <- glm(y~X, family=binomial(link="logit"))
 bstart <- fit.logit$coef
 
 ## do the Gibbs sampling
-T <- 1000
+T <- 300 ## set low for CRAN checks; increase to >= 1000 for better results
 out6 <- reglogit(T, y, X, nu=6, nup=NULL, bstart=bstart, normalize=FALSE)
 
 ## plot the posterior distribution of the coefficients

@@ -1,7 +1,7 @@
 #*******************************************************************************
 #
 # Regularized logistic regression
-# Copyright (C) 2011, the University of Chicago
+# Copyright (C) 2011, The University of Chicago
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -76,7 +76,7 @@ draw.beta <- function(X, z, lambda, omega, nu, sigma,
 
       ## special handling in Binomial case
       if(length(kappa) == 1) uk <- colSums(X*kappa)
-      else uk <- t(kappa) %*% X
+      else uk <- drop(t(kappa) %*% X)
       b <- B %*% uk
 
     } else ## CDF representation
@@ -481,7 +481,7 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
                   zzero=TRUE, powerprior=TRUE, kmax=442,
                   bstart=NULL, lt=NULL, nup=list(a=2, b=0.1),
                   method=c("MH", "slice", "vaduva"), 
-                  save.latents=FALSE, sparse=FALSE, verb=100)
+                  save.latents=FALSE, verb=100)
 {
   ## checking T
   if(length(T) != 1 || !is.numeric(T) || T < 1)
@@ -497,7 +497,13 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
 
   ## check the method argument
   method <- match.arg(method)
-  
+
+  ## possibly deal with sparse X
+  if(class(X)[1] == "dgCMatrix") {
+    sparse <- TRUE
+    X <- as.matrix(X)
+  } else sparse <- FALSE
+
   ## design matrix processing
   X <- as.matrix(X)
   if(normalize) {
@@ -540,10 +546,6 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
   ## check save.latents
   if(length(save.latents) != 1 || !is.logical(save.latents))
     stop("save.latents should be a scalar logical")
-
-  ## check sparse
-  if(length(sparse) != 1 || !is.logical(sparse))
-    stop("sparse should be a scalar logical")
 
   ## initial values of the regularization latent variables
   if(nu > 0) {  ## omega lasso/L1 latents
@@ -661,7 +663,7 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
                       zzero=TRUE, powerprior=TRUE, kmax=442,
                       bstart=NULL, lt=NULL, nup=list(a=2, b=0.1),
                       method=c("MH", "slice", "vaduva"), 
-                      save.latents=FALSE, sparse=FALSE, verb=100)
+                      save.latents=FALSE, verb=100)
 {
   ## checking T
   if(length(T) != 1 || !is.numeric(T) || T < 1)
@@ -686,6 +688,12 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
   ## check the method argument
   method <- match.arg(method)
   
+  ## possibly deal with sparse X
+  if(class(X)[1] == "dgCMatrix") {
+    sparse <- TRUE
+    X <- as.matrix(X)
+  } else sparse <- FALSE
+
   ## design matrix processing
   X <- as.matrix(X)
   if(normalize) {
@@ -740,10 +748,6 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
   if(length(save.latents) != 1 || !is.logical(save.latents))
     stop("save.latents should be a scalar logical")
 
-  ## check sparse
-  if(length(sparse) != 1 || !is.logical(sparse))
-    stop("sparse should be a scalar logical")
-  
   ## initial values of the regularization latent variables
   if(all(nu > 0)) {  ## omega lasso/L1 latents
     ot <- matrix(1, nrow=m, ncol=Q-1)
@@ -832,7 +836,7 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
     
     ## update the map
     if(lpost[t] > map$lpost) {
-      map <- list(beta=beta[t,,], lpost=lpost[t], lambda=lambda[t,,])
+      map <- list(beta=beta[t,,], lpost=lpost[t], lambda=lt)
       if(!is.null(nus)) map$nu <- nus[t,]
     }
       

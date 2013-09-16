@@ -1,8 +1,8 @@
-a01de7a3e4d10602fc688727f46185d0 *ChangeLog
-5c27447a75225335ac4c716260f63cf1 *DESCRIPTION
+fadf844fd365e89c497df33f9e007ad4 *ChangeLog
+3b1f2f6e161dcf31ed89c07c23ae9aca *DESCRIPTION
 659e9b79f404c09433de1f25abb733b9 *NAMESPACE
-44c7e3d126e544b3bbba687c3b9e1808 *R/dRUM.R
-b85e5bfa1656fb2c096579fce6fa0b20 *R/reglogit.R
+7be1dcf0c2d73766d0fd37372627ef66 *R/dRUM.R
+e11bd97838176cd7373fe59dde0c7abd *R/reglogit.R
 8e06ca762ed214d4249dfa8f7766a608 *data/pima.rda
 741bf89280278ec80314272391df523c *demo/00Index
 772d315f77ab97cd7dc97d3386567afe *demo/pima_dRUM.R
@@ -11,6 +11,6 @@ a1edf4c275302c9ccade67ff77de741e *man/pima.Rd
 7b72af86fb9c669adc5e4c5c9628de83 *man/predict.reglogit.Rd
 20a83fca23ba6a16e87bdd31d89a49c0 *man/reglogit-internal.Rd
 c8318557af90da47a8a973fdc86492d5 *man/reglogit-package.Rd
-7f5e7ed09e15a4d2d57dfc65e06ab25f *man/reglogit.Rd
+a4091329e73f7a306cf956461de1a0bb *man/reglogit.Rd
 190381aaf05e4be8b1085ba3244a96b2 *src/Makevars
 2934d3db51af79b1575434cb3b8de17e *src/gibbs.c

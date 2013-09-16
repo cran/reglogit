@@ -1,3 +1,10 @@
+1.2-2 (14 Jan 2013)
+-----
+
+changed how sparse matrices are specified.  Instead of sparse = 
+TRUE, you can just give a sparse X input
+
+
 1.2-1 (16 Sept 2013)
 -----
 
