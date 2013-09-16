@@ -1,5 +1,46 @@
+#*******************************************************************************
+#
+# Regularized logistic regression
+# Copyright (C) 2011, the University of Chicago
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2.1 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#
+# Questions? Contact Robert B. Gramacy (rbgramacy@chicagobooth.edu)
+#
+#*******************************************************************************
+
+
 ## functions for Gibbs sampling the parameters to the
 ## regularized logit regression model
+
+## rmultnorm
+##
+## faster version of rmvnorm from the mvtnorm package
+
+rmultnorm <- function(n,mu,sigma)
+  {
+    p <- length(mu)
+    z <- matrix(rnorm(n * p),nrow=n)
+    ch <- chol(sigma,pivot=T)
+    piv <- attr(ch,"pivot")
+    zz <- (z%*%ch)
+    zzz <- 0*zz
+    zzz[,piv] <- zz
+    zzz + matrix(mu,nrow=n,ncol=p,byrow=T)
+}
+
 
 ## draw.beta:
 ##
@@ -14,15 +55,16 @@ draw.beta <- function(X, z, lambda, omega, nu, sigma,
     if(nu < 0 && !is.null(sigma)) n <- 1
     
     ## covariance of the conditional
-    ## tXLi <- t(X) %*% diag(1/lambda)
     tXLi <- t(X * (1/lambda))
     Bi <- tXLi %*% X
     if(nu > 0) {
       bdi <- (kp/nu)^2 * 1/(sigma^2 * omega)
       if(ncol(X) == length(sigma) + 1) bdi <- c(0, bdi)
-      diag(Bi) <- diag(Bi) + bdi
+      if(class(Bi)[1] == "dgCMatrix")
+        Bi <- Bi + .sparseDiagonal(nrow(Bi)) * bdi
+      else diag(Bi) <- diag(Bi) + bdi
     } ## else Bi <- 0
-    B <- solve(Bi) # + tXLi %*% X)
+    B <- base::solve(Bi) # + tXLi %*% X)
 
     ## mean of the conditional
     if(is.null(z)) { ## z=0 PDF representation
@@ -33,7 +75,7 @@ draw.beta <- function(X, z, lambda, omega, nu, sigma,
       kappa <- (a - 0.5*(a-b))
 
       ## special handling in Binomial case
-      if(length(kappa == 1)) uk <- apply(X*kappa, 2, sum)
+      if(length(kappa) == 1) uk <- colSums(X*kappa)
       else uk <- t(kappa) %*% X
       b <- B %*% uk
 
@@ -41,7 +83,8 @@ draw.beta <- function(X, z, lambda, omega, nu, sigma,
       b <- B %*% tXLi %*% (z - 0.5*(1-kappa)*lambda)
 
     ## draw from the MVN
-    return(rmvnorm(1, b, B))
+    ## return(rmvnorm(1, b, B))
+    return(rmultnorm(1, b, B))
   }
 
 
@@ -245,7 +288,7 @@ calc.mlpost <- function(yX, beta, nu, kappa, kp, sigma,
     if(is.null(dim(beta))) beta <- matrix(beta, ncol=dim(yX)[3])
     
     ## likelihood part
-    if(!is.null(dim(kappa))) kappa <- apply(kappa, 1, sum)
+    if(!is.null(dim(kappa))) kappa <- rowSums(kappa)
     Cs <- rep(1, nrow(yX))
     Qm1 <- ncol(beta)
     for(q in 1:Qm1) Cs <- Cs + exp(-drop(yX[,,q] %*% beta[,q]))
@@ -368,7 +411,7 @@ mpreprocess <- function(X, y, flatten, kappa)
     Q <- ncol(y)
 
     ## check if there is a need to flatten
-    N <- apply(y, 1, sum)
+    N <- rowSums(y)
     
     if(max(N) == 1 || flatten) { ## flattened binomial case
 
@@ -437,7 +480,8 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
                   kappa=1, icept=TRUE, normalize=TRUE,
                   zzero=TRUE, powerprior=TRUE, kmax=442,
                   bstart=NULL, lt=NULL, nup=list(a=2, b=0.1),
-                  method=c("MH", "slice", "vaduva"), verb=100)
+                  method=c("MH", "slice", "vaduva"), 
+                  save.latents=FALSE, sparse=FALSE, verb=100)
 {
   ## checking T
   if(length(T) != 1 || !is.numeric(T) || T < 1)
@@ -493,11 +537,21 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
     stop("must define sigma for regularization")
   else if(nu == 0) sigma <- NULL
 
+  ## check save.latents
+  if(length(save.latents) != 1 || !is.logical(save.latents))
+    stop("save.latents should be a scalar logical")
+
+  ## check sparse
+  if(length(sparse) != 1 || !is.logical(sparse))
+    stop("sparse should be a scalar logical")
+
   ## initial values of the regularization latent variables
   if(nu > 0) {  ## omega lasso/L1 latents
-    omega <- matrix(NA, nrow=T, ncol=m)
-    ot <- omega[1,] <- 1
-    ## omega[,1] <- 1  ## Not sure why this is here ???
+    ot <- 1
+    if(save.latents) {
+      omega <- matrix(NA, nrow=T, ncol=m)
+      omega[1,] <- ot
+    }
   } else { omega <- NULL; ot <- rep(1, m) }
 
   ## save the original kappa
@@ -508,16 +562,23 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
   nd <- preprocess(X, y, N, flatten, kappa)
   yX <- nd$yX; y <- nd$y; kappa <- nd$kappa
   n <- nrow(yX)
+  if(sparse) yX.sparse <- Matrix(yX, sparse=TRUE)
  
   ## initialize lambda latent variables
-  lambda <- matrix(NA, nrow=T, ncol=n)
   if(is.null(lt)) lt <- rep(1, n)
-  map$lambda <- lambda[1,] <- lt
+  map$lambda <- lt
+  if(save.latents) {
+    lambda <- matrix(NA, nrow=T, ncol=n)
+    lambda[1,] <- lt
+  }
 
   ## initial values for the logit latents
   if(!zzero) {
-    z <- matrix(NA, nrow=T, ncol=n)
-    z[1,] <- zt <- y
+    zt <- y
+    if(save.latents) {
+      z <- matrix(NA, nrow=T, ncol=n)
+      z[1,] <- zt
+    }
   } else { z <- zt <- NULL }
 
   ## allocate and initial log posterior calculation
@@ -533,17 +594,24 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
     if(t %% verb == 0) cat("round", t, "\n")
     
     ## if regularizing, draw the latent omega values
-    if(nu > 0) ot <- omega[t,] <- draw.omega(beta[t-1,], sigma, nu, kp)
+    if(nu > 0) {
+      ot <- draw.omega(beta[t-1,], sigma, nu, kp)
+      if(save.latents) omega[t,] <- ot
+    }
 
     ## if logistic, draw the latent lambda values
-    lt <- lambda[t,] <-
-      draw.lambda(yX, beta[t-1,], lt, kappa, kmax, zzero, method=method)
+    lt <- draw.lambda(yX, beta[t-1,], lt, kappa, kmax, zzero, method=method)
+    if(save.latents) lambda[t,] <- lt
 
     ## draw the latent z values
-    if(!zzero) zt <- z[t,] <- draw.z(yX, beta[t-1,], lt, kappa)
+    if(!zzero) {
+      zt <- draw.z(yX, beta[t-1,], lt, kappa)
+      if(save.latents) z[t,] <- zt
+    }
 
     ## draw the regression coefficients
-    beta[t,] <- draw.beta(yX, zt, lt, ot, nu, sigma, kappa, kp, method=method)
+    if(sparse) beta[t,] <- draw.beta(yX.sparse, zt, lt, ot, nu, sigma, kappa, kp, method=method)
+    else beta[t,] <- draw.beta(yX, zt, lt, ot, nu, sigma, kappa, kp, method=method)
 
     ## maybe draw samples from nu
     if(!is.null(nus)) nu <- nus[t] <- draw.nu(beta[t,], sigma, kp, nup)
@@ -553,7 +621,7 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
 
     ## update the map
     if(lpost[t] > map$lpost) {
-      map <- list(beta=beta[t,], lpost=lpost[t], lambda=lambda[t,])
+      map <- list(beta=beta[t,], lpost=lpost[t], lambda=lt)
       if(!is.null(nus)) map$nu <- nus[t]
     }
       
@@ -566,11 +634,12 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
   }     
 
   ## construct the return object
-  r <- list(X=X, y=y, beta=beta, lambda=lambda, lpost=lpost,
+  r <- list(X=X, y=y, beta=beta, lpost=lpost,
             map=map, kappa=kappa)
-  if(nu > 0) r$omega <- omega
+  if(save.latents) r$lambda <- lambda
+  if(nu > 0 && save.latents) r$omega <- omega
   if(normalize) r$normx <- normx
-  if(!zzero) r$z <- z
+  if(!zzero && save.latents) r$z <- z
   if(!is.null(nus)) r$nu <- nus
   r$icept <- icept
 
@@ -591,7 +660,8 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
                       kappa=1, icept=TRUE, normalize=TRUE,
                       zzero=TRUE, powerprior=TRUE, kmax=442,
                       bstart=NULL, lt=NULL, nup=list(a=2, b=0.1),
-                      method=c("MH", "slice", "vaduva"), verb=100)
+                      method=c("MH", "slice", "vaduva"), 
+                      save.latents=FALSE, sparse=FALSE, verb=100)
 {
   ## checking T
   if(length(T) != 1 || !is.numeric(T) || T < 1)
@@ -665,11 +735,22 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
   if(is.null(sigma) && any(nu > 0))
     stop("must define sigma for regularization")
   else if(all(nu == 0)) sigma <- NULL
+
+  ## check save.latents
+  if(length(save.latents) != 1 || !is.logical(save.latents))
+    stop("save.latents should be a scalar logical")
+
+  ## check sparse
+  if(length(sparse) != 1 || !is.logical(sparse))
+    stop("sparse should be a scalar logical")
   
   ## initial values of the regularization latent variables
   if(all(nu > 0)) {  ## omega lasso/L1 latents
-    omega <- array(NA, dim=c(T, m, Q-1))
-    omega[1,,] <- 1; ot <- matrix(omega[1,,], ncol=Q-1)
+    ot <- matrix(1, nrow=m, ncol=Q-1)
+    if(save.latents) {
+      omega <- array(NA, dim=c(T, m, Q-1))
+      omega[1,,] <- ot; 
+    }
   } else { omega <- NULL; ot <- matrix(1, nrow=m, ncol=Q-1) }
   
   ## save the original kappa
@@ -680,16 +761,26 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
   nd <- mpreprocess(X, y, flatten, kappa)
   yX <- nd$yX; y <- nd$y; kappa <- nd$kappa
   n <- dim(yX)[1]
+  if(sparse) {
+    yX.sparse <- array(NA, dim=dim(yX))
+    for(q in 1:(Q-1)) yX.sparse[,,q] <- Matrix(yX[,,q], sparse=TRUE)
+  }
   
   ## initialize lambda latent variables
-  lambda <- array(NA, dim=c(T, n, Q-1))
   if(is.null(lt)) lt <- matrix(1, nrow=n, ncol=Q-1)
-  map$lambda <- lambda[1,,] <- lt
+  map$lambda <- lt
+  if(save.latents) {
+    lambda <- array(NA, dim=c(T, n, Q-1))
+    lambda[1,,] <- lt
+  }
   
   ## initial values for the logit latents
   if(!zzero) {
-    z <- array(NA, dim=c(T, n, Q-1))
-    z[1,,] <- zt <- y
+    zt <- y
+    if(save.latents) {
+      z <- array(NA, dim=c(T, n, Q-1))
+      z[1,,] <- zt
+    }
   } else { z <- zt <- NULL }
   
   ## allocate and initial log posterior calculation
@@ -710,20 +801,26 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
       Cs <- calc.Cs(yX, beta[t-1,,], lt, kappa)
       
       ## if regularizing, draw the latent omega values
-      if(all(nu > 0))
-        ot[,q] <- omega[t,,q] <- draw.omega(beta[t-1,,q], sigma, nu, kp)
+      if(all(nu > 0)) {
+        ot[,q] <- draw.omega(beta[t-1,,q], sigma, nu, kp)
+        if(save.latents) omega[t,,q] <- ot[,q]
+      }
       
       ## if logistic, draw the latent lambda values
-      lt[,q] <- lambda[t,,q] <-
-        draw.lambda(yX[,,q], beta[t-1,,q], lt[,q], kappa[,q], kmax, zzero,
-                    method=method, C=Cs[,q])
+      lt[,q] <- draw.lambda(yX[,,q], beta[t-1,,q], lt[,q], kappa[,q], kmax, 
+        zzero, method=method, C=Cs[,q])
+      if(save.latents) lambda[t,,q] <- lt[,q]
 
       ## draw the latent z values
-      if(!zzero) zt[,q] <- z[t,,q] <- draw.z(yX[,,q], beta[t-1,,q], lt[,q], kappa,
-                                             C=Cs[,q])
-      
+      if(!zzero) {
+        zt[,q] <- draw.z(yX[,,q], beta[t-1,,q], lt[,q], kappa, C=Cs[,q])
+        if(save.latents) z[t,,q] <- zt[,q]
+      }
+
       ## draw the regression coefficients
-      beta[t,,q] <- draw.beta(yX[,,q], zt[,q], lt[,q], ot[,q], nu[q],
+      if(sparse) beta[t,,q] <- draw.beta(yX.sparse[,,q], zt[,q], lt[,q], ot[,q], nu[q],
+                              sigma, kappa[,q], kp, method=method)
+      else beta[t,,q] <- draw.beta(yX[,,q], zt[,q], lt[,q], ot[,q], nu[q],
                               sigma, kappa[,q], kp, method=method)
       
       ## maybe draw samples from nu
@@ -750,12 +847,12 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
   }     
   
   ## construct the return object
-  r <- list(X=X, y=y, beta=beta, lambda=lambda, lpost=lpost,
+  r <- list(X=X, y=y, beta=beta, lpost=lpost,
             map=map, kappa=kappa)
-  if(all(nu > 0)
-     ) r$omega <- omega
+  if(save.latents) r$lambda <- lambda
+  if(all(nu > 0) & save.latents) r$omega <- omega
   if(normalize) r$normx <- normx
-  if(!zzero) r$z <- z
+  if(!zzero && save.latents) r$z <- z
   if(!is.null(nus)) r$nu <- nus
   r$icept <- icept
   

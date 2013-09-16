@@ -18,6 +18,7 @@
 \alias{calc.Cs}
 \alias{calc.mlpost}
 \alias{mpreprocess}
+\alias{rmultnorm}
 \title{Internal reglogit Functions}
 \description{
   Internal \pkg{reglogit} functions

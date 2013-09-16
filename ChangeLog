@@ -1,3 +1,14 @@
+1.2-1 (16 Sept 2013)
+-----
+
+added save.latents option to reglogit (regmlogit to come) in order
+to allow users to bypass saving latents which could cause memory
+swapping
+
+added option for using sparse matrices in Beta draws, and now using
+rmultnorm for faster samples from the normal distribution
+
+
 1.2 (24 April 2013)
 ---
 

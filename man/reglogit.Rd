@@ -18,11 +18,12 @@ reglogit(T, y, X, N = NULL, flatten = FALSE, sigma = 1, nu = 1,
       kappa = 1, icept = TRUE, normalize = TRUE, zzero = TRUE, 
       powerprior = TRUE, kmax = 442, bstart = NULL, lt = NULL, 
       nup = list(a = 2, b = 0.1), method = c("MH", "slice", "vaduva"), 
-      verb = 100)
-regmlogit(T, y, X, flatten=FALSE, sigma=1, nu=1, kappa=1, icept=TRUE, 
-      normalize=TRUE, zzero=TRUE, powerprior=TRUE, kmax=442,
-      bstart=NULL, lt=NULL, nup=list(a=2, b=0.1),
-      method=c("MH", "slice", "vaduva"), verb=100)
+      save.latents = FALSE, sparse = FALSE, verb = 100)
+regmlogit(T, y, X, flatten = FALSE, sigma = 1, nu = 1, kappa = 1, 
+      icept=TRUE, normalize = TRUE, zzero = TRUE, powerprior = TRUE, 
+      kmax = 442, bstart = NULL, lt = NULL, nup = list(a=2, b=0.1),
+      method = c("MH", "slice", "vaduva"), save.latents = FALSE, 
+      sparse = FALSE, verb=100)
 }
 \arguments{
   \item{T}{
@@ -104,11 +105,20 @@ regmlogit(T, y, X, flatten=FALSE, sigma=1, nu=1, kappa=1, icept=TRUE,
   method is recommended.  See the reference to Gramacy \& Polson
   (2010) for details
 }
+\item{save.latents}{ a scalar \code{logical} indicating wether or not
+  a trace of latent \code{z}, \code{lambda} and \code{omega} values should be saved
+  for each iteration.  Specify \code{save.latents=TRUE} for very large \code{X}
+  in order to reduce memory swapping on low-RAM machines }
   \item{verb}{
   A positive integer indicating the number of MCMC rounds after which
   a progress statement is printed.  Giving \code{verb = 0} causes no
   statements to be printed
 }
+\item{sparse}{ a scalar \code{logical} indicating whether or not the design
+matrix \code{X} should be treated as a sparse \code{\link{Matrix}} object
+for the purposes of Gibbs-sampling coefficient values.  When the design matrix
+is sparse, this can produce a ~3x-faster execution.  But when it is not sparse
+the execution could be much slower }
 }
 \details{
 
