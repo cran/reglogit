@@ -17,13 +17,11 @@ unified interface.
 reglogit(T, y, X, N = NULL, flatten = FALSE, sigma = 1, nu = 1,
       kappa = 1, icept = TRUE, normalize = TRUE, zzero = TRUE, 
       powerprior = TRUE, kmax = 442, bstart = NULL, lt = NULL, 
-      nup = list(a = 2, b = 0.1), method = c("MH", "slice", "vaduva"), 
-      save.latents = FALSE, verb = 100)
+      nup = list(a = 2, b = 0.1), save.latents = FALSE, verb = 100)
 regmlogit(T, y, X, flatten = FALSE, sigma = 1, nu = 1, kappa = 1, 
       icept=TRUE, normalize = TRUE, zzero = TRUE, powerprior = TRUE, 
       kmax = 442, bstart = NULL, lt = NULL, nup = list(a=2, b=0.1),
-      method = c("MH", "slice", "vaduva"), save.latents = FALSE, 
-      verb=100)
+      save.latents = FALSE, verb=100)
 }
 \arguments{
   \item{T}{
@@ -102,12 +100,6 @@ regmlogit(T, y, X, flatten = FALSE, sigma = 1, nu = 1, kappa = 1,
   \item{nup}{
   prior parameters \code{=list(a, b)} for the inverse Gamma distribution
   prior for \code{nu}, or \code{NULL}, which causes \code{nu} to be fixed
-}
-  \item{method}{
-  the MCMC sampling method for the latent \code{lambda} variables.
-  The \code{"vaduva"} method is experimental, and the \code{"MH"}
-  method is recommended.  See the reference to Gramacy \& Polson
-  (2010) for details
 }
 \item{save.latents}{ a scalar \code{logical} indicating wether or not
   a trace of latent \code{z}, \code{lambda} and \code{omega} values should be saved

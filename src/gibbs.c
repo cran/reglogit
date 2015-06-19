@@ -1,78 +1,38 @@
-// #include "rhelp.h"
+/****************************************************************************
+ *
+ * Regularized logistic regression
+ * Copyright (C) 2011, The University of Chicago
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301  USA
+ *
+ * Questions? Contact Robert B. Gramacy (rbgramacy@chicagobooth.edu)
+ *
+ ****************************************************************************/
+
+
 #include <stdlib.h>
 #include <assert.h>
 #include <R.h>
 #include <Rmath.h>
+#ifdef _OPENMP
+  #include <omp.h>
+#endif 
+#include "rand_draws.h"
 
 #define TOL sqrt(DOUBLE_EPS)
-
-/*
- * sq:
- * 
- * calculate the square of x
- */
-
-double sq(double x)
-{
-  return x*x;
-}
-
-
-/*
- * rinvgauss:
- *
- * Michael/Schucany/Haas Method for generating Inverse Gaussian
- * random variable, as given in Gentle's book on page 193
- */
-
-double rinvgauss(const double mu, const double lambda)
-{
-  double u, y, x1, mu2, l2;
-
-  y = sq(norm_rand());
-  mu2 = sq(mu);
-  l2 = 2*lambda;
-  x1 = mu + mu2*y/l2 - (mu/l2)* sqrt(4*mu*lambda*y + mu2*sq(y));
-
-  u = unif_rand();
-  if(u <= mu/(mu + x1)) return x1;
-  else return mu2/x1;
-}
-
-
-/*
- * rtnorm_reject:
- *
- * dummy function in place of the Robert (1995) algorithm 
- * based on proposals from the exponential, should have that 
- * mean < tau 
- */
-
-double rtnorm_reject(double mean, double tau, double sd)
-{
-  double x, z, lambda;
-  int cnt;
-
-  /* Christian Robert's way */
-  assert(mean < tau);
-  tau = (tau - mean)/sd;
-
-  /* optimal exponential rate parameter */
-  lambda = 0.5*(tau + sqrt(sq(tau) + 4.0));
-
-  /* do the rejection sampling */
-  cnt = 0;
-  do {
-    z = rexp(1.0/lambda) + tau;
-  } while (unif_rand() > exp(0.0-0.5*sq(z - lambda)));
-
-  /* put x back on the right scale */
-  x = z*sd + mean;
-
-  assert(x > 0);
-  return(x);
-
-}
 
 
 /*
@@ -81,38 +41,17 @@ double rtnorm_reject(double mean, double tau, double sd)
  * draw Lambda from its (infinite mixture) prior
  */
 
-double draw_lambda_prior(double *psii, int kmax)
+double draw_lambda_prior(double *psii, int kmax, rk_state *state)
 {
   double lambda;
   int k;
 
   lambda = 0.0;
   for(k=0; k<=kmax; k++) {
-    lambda += psii[k] * rexp(1.0);
+    lambda += psii[k] * expo_rand(state);
   }
   
   return lambda;
-}
-
-
-/* 
- * draw_lambda_prior_R:
- *
- * R interface to lambda draw from the posterior conditional
- * by rejection sampling and proposals from the prior
- */
-
-void draw_lambda_prior_R(int *n_in, double *psii_in, int *kmax_in, 
-			 double *lambda_out)
-{
-  int i;
-
-  GetRNGstate();
-
-  for(i=0; i<*n_in; i++) 
-    lambda_out[i] = draw_lambda_prior(psii_in, *kmax_in);
-
-  PutRNGstate();  
 }
 
 
@@ -124,7 +63,7 @@ void draw_lambda_prior_R(int *n_in, double *psii_in, int *kmax_in,
  */
 
 double draw_lambda(double lambda_old, double xbeta, 
-		   double kappa, int kmax, int thin)
+		   double kappa, int kmax, int thin, rk_state *state)
 {
   int t, k;
   double lambda, lp, lpold, m, s;
@@ -143,7 +82,7 @@ double draw_lambda(double lambda_old, double xbeta,
   for(t=0; t<thin; t++) {
 
     /* propose a new lambda from the prior */
-    lambda = draw_lambda_prior(psii, kmax);
+    lambda = draw_lambda_prior(psii, kmax, state);
     
     /* calculate the probability of the propsed lambda */
     s = sqrt(lambda);
@@ -151,7 +90,7 @@ double draw_lambda(double lambda_old, double xbeta,
     lp = pnorm(0.0, m, s, 0, 1);
     
     /* MH accept or reject */
-    if(unif_rand() < exp(lp - lpold)) {
+    if(runi(state) < exp(lp - lpold)) {
       lambda_old = lambda;
       lpold = lp;
     }
@@ -166,15 +105,15 @@ double draw_lambda(double lambda_old, double xbeta,
 
 
 /*
- * draw_lambda_zz_MH:
+ * draw_lambda_zz:
  *
  * Metropolis-Hastings algorithm for drawing lambda from its 
  * full conditional under the z=0 model -- uses proposals 
  * from the prior
  */
 
-double draw_lambda_zz_MH(double lambda_old, double xbeta, 
-			       double kappa, int kmax, int thin)
+double draw_lambda_zz(double lambda_old, double xbeta, 
+			       double kappa, int kmax, int thin, rk_state *state)
 {
   int t, k;
   double lambda, lp, lpold, m, s;
@@ -193,7 +132,7 @@ double draw_lambda_zz_MH(double lambda_old, double xbeta,
   for(t=0; t<thin; t++) {
 
     /* propose a new lambda from the prior */
-    lambda = draw_lambda_prior(psii, kmax);
+    lambda = draw_lambda_prior(psii, kmax, state);
     
     /* calculate the probability of the propsed lambda */
     s = sqrt(lambda);
@@ -201,7 +140,7 @@ double draw_lambda_zz_MH(double lambda_old, double xbeta,
     lp = dnorm(0.0, m, s, 1);
 
     /* MH accept or reject */
-    if(unif_rand() < exp(lp - lpold)) {
+    if(runi(state) < exp(lp - lpold)) {
       lambda_old = lambda;
       lpold = lp;
     }
@@ -214,105 +153,6 @@ double draw_lambda_zz_MH(double lambda_old, double xbeta,
 }
 
 
-/*
- * draw_lambda_zz_slice:
- *
- * Metropolis-Hastings algorithm for drawing lambda from its 
- * full conditional under the z=0 model -- uses slice sampling
- */
-
-double draw_lambda_zz_slice(double lambda_old, double xbeta, 
-			       double kappa, int kmax)
-{
-  int k, cnt;
-  double lambda, p, pold, m, s, u;
-  double *psii;
-
-  /* calculate the probability og the previous lambda */
-  s = sqrt(lambda_old);
-  m = xbeta + 0.5*(1.0-kappa)*lambda_old;
-  pold = dnorm(0.0, m, s, 0);
-
-  /* draw the uniform latent variable */
-  u = runif(0, pold);
-
-  /* allocate psii */
-  psii = (double*) malloc(sizeof(double) * (kmax+1));
-  for(k=0; k<=kmax; k++) psii[k] = 2.0/((0.5+k)*(kappa-0.5+k));
-  
-  cnt = 0;
-  do {
-
-    /* propose a new lambda from the prior */
-    lambda = draw_lambda_prior(psii, kmax);
-    
-    /* calculate the probability of the propsed lambda */
-    s = sqrt(lambda);
-    m = xbeta + 0.5*(1.0-kappa)*lambda;
-    p = dnorm(0.0, m, s, 0);
-
-    /* sanity print for poor rejection rate */
-    cnt++;
-    if(cnt % 1000000 == 0) 
-      warning("slice=%d, xbeta=%g, lambda=%g, u=%g, kappa=%g\n", 
-	      cnt, xbeta, lambda_old, u, kappa);
-
-  } while(p <= u);
-
-
-  /* clean up */
-  free(psii);
-
-  return lambda;
-}
-
-
-/*
- * draw_lambda_zz_vaduva:
- *
- * Vaduva's generalization of the rejection method for
- * sampling lambda_i in the z=0 version of the model
- */
-
-double draw_lambda_zz_vaduva(double xbeta, double kappa, int kmax)
-{
-  int k, cnt;
-  double lambda, INv, INm, y;
-  double *psii;
-
-  /* lambda parmater for IN */
-  INv = 0.25*(2.0-kappa)*(2.0-kappa) + kappa - 1.0;
-  INm = sqrt(INv)/fabs(xbeta);
-
-  /* allocate psii */
-  psii = (double*) malloc(sizeof(double) * (kmax+1));
-  for(k=0; k<=kmax; k++) psii[k] = 2.0/((1.0+k)*(kappa+1.0+k));
-  
-  cnt = 0;
-  do {
-    
-    /* x draw in the notes */
-    lambda = 1.0/rinvgauss(INm, INv);
-
-    /* y draw in the notes */
-    y = draw_lambda_prior(psii, kmax);
-
-    /* sanity print for poor rejection rate */
-    cnt++;
-    if(cnt % 100000 == 0) 
-      warning("vaduva=%d, x=%g, y=%g, xbeta=%g, kappa=%g, INv=%g\n",
-	      cnt, lambda, y, xbeta, kappa, INv);
-
-  } while(lambda < y);
-
-  
-  /* clean up */
-  free(psii);
-
-  return lambda;
-}
-
-
 /* 
  * draw_lambda_R:
  *
@@ -322,19 +162,36 @@ double draw_lambda_zz_vaduva(double xbeta, double kappa, int kmax)
 
 void draw_lambda_R(int *n_in, double *xbeta_in, double *kappa_in, 
 		   int *kl_in, int *kmax_in, int *zzero_in, 
-		   int *thin_in, int *tl_in, int *method_in, 
-		   double *lambda_inout)
+		   int *thin_in, int *tl_in, double *lambda_inout)
 {
-  int i, thin;
+  int thin;
   double kappa;
-
-  GetRNGstate();
 
   /* initial values */
   kappa = *kappa_in;
   thin = *thin_in;
 
-  for(i=0; i<*n_in; i++) {
+  #ifdef _OPENMP
+  #pragma omp parallel
+  {
+  int i, start, step;
+  double aux[2];
+  double lambda_sqrt, xbeta;
+  rk_state *state;
+  start = omp_get_thread_num();
+  step = omp_get_max_threads();
+#else 
+  int i, start, step;
+  double aux[2];
+  double lambda_sqrt, xbeta;
+  rk_state *state;
+  start = 0;
+  step = 1;
+#endif
+
+  state = states[start];
+
+  for(i=start; i<*n_in; i += step) {
 
     /* depends on whether we are vectorizing or not */
     if(*kl_in > 1) kappa = kappa_in[i];
@@ -343,29 +200,16 @@ void draw_lambda_R(int *n_in, double *xbeta_in, double *kappa_in,
     /* the actual draw */
     if(!*zzero_in)
       lambda_inout[i] = draw_lambda(lambda_inout[i], xbeta_in[i], 
-				    kappa, *kmax_in, thin);
+				    kappa, *kmax_in, thin, state);
     else {
-      switch(*method_in) {
-      case 1: 
-	lambda_inout[i] = draw_lambda_zz_vaduva(xbeta_in[i], kappa, 
-						*kmax_in); 
-	break;
-      case 2:
-        lambda_inout[i] = 
-	  draw_lambda_zz_slice(lambda_inout[i], xbeta_in[i], kappa, 
-			       *kmax_in);
-	break;
-      case 3:
-	lambda_inout[i] = 
-	  draw_lambda_zz_MH(lambda_inout[i], xbeta_in[i], kappa, 
-			    *kmax_in, thin);
-	break;
-      default: error("no default defined");
-      }
+      lambda_inout[i] = draw_lambda_zz(lambda_inout[i], xbeta_in[i], kappa, 
+			    *kmax_in, thin, state);
     }
   }
+#ifdef _OPENMP
+  }
+#endif
 
-  PutRNGstate();
 }
 
 
@@ -381,8 +225,8 @@ void draw_z_R(int *n_in, double *xbeta_in, double *beta_in,
 	      double *lambda_in, double *kappa_in, int *kl_in, 
 	      double *z_out)
 {
-  int n, i;
-  double xbeta, madj, lambda_sqrt;
+  int n;
+  double madj;
 
   /* copy scalars */
   n = *n_in;
@@ -390,11 +234,28 @@ void draw_z_R(int *n_in, double *xbeta_in, double *beta_in,
   /* calculate mean multiplicative adjustment due to kappa */
   madj = 0.5*(1.0 - *kappa_in);
 
-  /* get the RNG state */
-  GetRNGstate();
+#ifdef _OPENMP
+  #pragma omp parallel
+  {
+  int i, start, step;
+  double aux[2];
+  double lambda_sqrt, xbeta;
+  rk_state *state;
+  start = omp_get_thread_num();
+  step = omp_get_max_threads();
+#else 
+  int i, start, step;
+  double aux[2];
+  double lambda_sqrt, xbeta;
+  rk_state *state;
+  start = 0;
+  step = 1;
+#endif
+
+  state = states[start];
 
   /* loop over rows of X */
-  for(i=0; i<n; i++) {
+  for(i=start; i<n; i += step) {
 
     /* depends on whether we are vectorizing or not */
     if(*kl_in > 1) madj = 0.5*(1.0 - kappa_in[i]);
@@ -405,16 +266,27 @@ void draw_z_R(int *n_in, double *xbeta_in, double *beta_in,
 
     /* draw until we get one in the right half-plane */
     if(xbeta >= 0) {
-      do { z_out[i] = rnorm(xbeta, lambda_sqrt);
+      do { 
+        rnor(aux, state);
+        z_out[i] = aux[0]*lambda_sqrt + xbeta;
+        if(z_out[i] >= 0) break;
+        z_out[i] = aux[1]*lambda_sqrt + xbeta;
+
       } while (z_out[i] < 0.0);
     } else { 
-      z_out[i] = rtnorm_reject(xbeta, 0.0, lambda_sqrt);
+      z_out[i] = rtnorm_reject(xbeta, 0.0, lambda_sqrt, state);
       assert(z_out[i] > 0.0);
     }
-  }
 
-  /* put the RNG state back */
-  PutRNGstate();
+    // #ifdef _OPENMP
+    //     #pragma omp master
+    // #endif
+    // fprintf(stdout, "i=%d\n", i);
+  }
+#ifdef _OPENMP
+  }
+#endif
+
 }
 
 

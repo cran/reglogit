@@ -49,7 +49,7 @@ rmultnorm <- function(n,mu,sigma)
 ## parameter nu, and thermo parameter kappa
 
 draw.beta <- function(X, z, lambda, omega, nu, sigma,
-                      kappa, kp, method)
+                      kappa, kp)
   {
     ## negative nu and no sigma indicates L2 prior if sigma not null
     if(nu < 0 && !is.null(sigma)) n <- 1
@@ -70,8 +70,7 @@ draw.beta <- function(X, z, lambda, omega, nu, sigma,
     if(is.null(z)) { ## z=0 PDF representation
 
       ## choices between different (a,b) parameterizations
-      if(method=="vaduva") { a <- 1; b <- kappa - 1 }
-      else { a  <- 0.5; b <- kappa - 0.5 }
+      a  <- 0.5; b <- kappa - 0.5
       kappa <- (a - 0.5*(a-b))
 
       ## special handling in Binomial case
@@ -162,21 +161,6 @@ draw.omega <- function(beta, sigma, nu, kp)
   }
 
 
-## draw.logit.prior
-##
-## testing function for the draw.lambda function
-## to make sure that the powered-up proposals from the
-## prior are working
-
-draw.logit.prior <- function(n, kappa, kmax=442)
-  {
-     k <- 0:kmax
-     lami <- 1 /(0.5*(1+k)*(kappa + k))
-     lambda <- draw.lambda.prior(n, lami)
-     x <- rnorm(length(lambda), sd=sqrt(lambda))
-     return(x)
-  }
-
 
 ## draw.lambda:
 ##
@@ -184,13 +168,8 @@ draw.logit.prior <- function(n, kappa, kmax=442)
 ## implement the logit link, via Metropolis-Hastings
 
 draw.lambda <- function(X, beta, lambda, kappa, kmax,
-                        zzero=TRUE, thin=kappa, method, C=NULL)
+                        zzero=TRUE, thin=kappa, C=NULL)
   {
-    ## method ignored by the C-side if zzero = FALSE
-    if(method=="vaduva") method <- 1
-    else if(method=="slice") method <- 2
-    else method <- 3
-
     ## calculate X * beta
     xbeta <- X %*% beta
     if(!is.null(C)) xbeta <- xbeta - log(C)
@@ -206,22 +185,7 @@ draw.lambda <- function(X, beta, lambda, kappa, kmax,
               zzero = as.integer(zzero),
               thin = as.integer(thin),
               tl = as.integer(length(thin)),
-              method = as.integer(method),
               lambda = as.double(lambda),
-              PACKAGE = "reglogit")$lambda)
-  }
-
-
-## draw.lambda.prior:
-##
-
-draw.lambda.prior <- function(n, psii)
-  {
-    return(.C("draw_lambda_prior_R",
-              n = as.integer(n),
-              psii = as.double(psii),
-              kmax = as.integer(length(psii)-1),
-              lambda = double(n),
               PACKAGE = "reglogit")$lambda)
   }
 
@@ -480,7 +444,6 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
                   kappa=1, icept=TRUE, normalize=TRUE,
                   zzero=TRUE, powerprior=TRUE, kmax=442,
                   bstart=NULL, lt=NULL, nup=list(a=2, b=0.1),
-                  method=c("MH", "slice", "vaduva"), 
                   save.latents=FALSE, verb=100)
 {
   ## checking T
@@ -494,9 +457,6 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
   m <- ncol(X)
   n <- length(y)
   if(n != nrow(X)) stop("dimension mismatch")
-
-  ## check the method argument
-  method <- match.arg(method)
 
   ## possibly deal with sparse X
   if(class(X)[1] == "dgCMatrix") {
@@ -589,6 +549,9 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
     calc.lpost(yX, map$beta, nu, kappa, kp, sigma, nup)
   if(!is.null(nus)) map$nu <- nu
   
+  ## initialize internal RNG
+  .C("newRNGstates")
+
   ## Gibbs sampling rounds
   for(t in 2:T) {
 
@@ -602,7 +565,7 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
     }
 
     ## if logistic, draw the latent lambda values
-    lt <- draw.lambda(yX, beta[t-1,], lt, kappa, kmax, zzero, method=method)
+    lt <- draw.lambda(yX, beta[t-1,], lt, kappa, kmax, zzero)
     if(save.latents) lambda[t,] <- lt
 
     ## draw the latent z values
@@ -612,8 +575,8 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
     }
 
     ## draw the regression coefficients
-    if(sparse) beta[t,] <- draw.beta(yX.sparse, zt, lt, ot, nu, sigma, kappa, kp, method=method)
-    else beta[t,] <- draw.beta(yX, zt, lt, ot, nu, sigma, kappa, kp, method=method)
+    if(sparse) beta[t,] <- draw.beta(yX.sparse, zt, lt, ot, nu, sigma, kappa, kp)
+    else beta[t,] <- draw.beta(yX, zt, lt, ot, nu, sigma, kappa, kp)
 
     ## maybe draw samples from nu
     if(!is.null(nus)) nu <- nus[t] <- draw.nu(beta[t,], sigma, kp, nup)
@@ -628,6 +591,9 @@ reglogit <- function(T, y, X, N=NULL, flatten=FALSE, sigma=1, nu=1,
     }
       
   }
+
+  ## destroy internal RNG
+  .C("deleteRNGstates")
 
   ## un-normalize
   if(normalize) {
@@ -662,7 +628,6 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
                       kappa=1, icept=TRUE, normalize=TRUE,
                       zzero=TRUE, powerprior=TRUE, kmax=442,
                       bstart=NULL, lt=NULL, nup=list(a=2, b=0.1),
-                      method=c("MH", "slice", "vaduva"), 
                       save.latents=FALSE, verb=100)
 {
   ## checking T
@@ -684,9 +649,6 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
   Q <- ncol(y)
   n <- nrow(y)
   if(n != nrow(X)) stop("dimension mismatch")
-  
-  ## check the method argument
-  method <- match.arg(method)
   
   ## possibly deal with sparse X
   if(class(X)[1] == "dgCMatrix") {
@@ -799,6 +761,7 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
     ## progress meter
     if(t %% verb == 0) cat("round", t, "\n")
 
+    ## loop over class labels
     for(q in 1:(Q-1)) {
 
       ## calculate Cs
@@ -812,7 +775,7 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
       
       ## if logistic, draw the latent lambda values
       lt[,q] <- draw.lambda(yX[,,q], beta[t-1,,q], lt[,q], kappa[,q], kmax, 
-        zzero, method=method, C=Cs[,q])
+        zzero, C=Cs[,q])
       if(save.latents) lambda[t,,q] <- lt[,q]
 
       ## draw the latent z values
@@ -823,9 +786,9 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
 
       ## draw the regression coefficients
       if(sparse) beta[t,,q] <- draw.beta(yX.sparse[,,q], zt[,q], lt[,q], ot[,q], nu[q],
-                              sigma, kappa[,q], kp, method=method)
+                              sigma, kappa[,q], kp)
       else beta[t,,q] <- draw.beta(yX[,,q], zt[,q], lt[,q], ot[,q], nu[q],
-                              sigma, kappa[,q], kp, method=method)
+                              sigma, kappa[,q], kp)
       
       ## maybe draw samples from nu
       if(!is.null(nus)) nu[q] <- nus[t,q] <- draw.nu(beta[t,,q], sigma, kp, nup)

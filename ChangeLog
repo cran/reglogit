@@ -1,3 +1,17 @@
+1.2-4 (22 June 2015)
+-----
+
+Made requested change to title, capitalizing Based
+
+
+1.2-3 (19 June 2015)
+-----
+
+added new RNG and OpenMP pragmas for parallelized sampling
+of latent variables -- yields substantial speedups on
+multicore machines
+
+
 1.2-2 (14 Jan 2013)
 -----
 

@@ -6,9 +6,7 @@
 \alias{draw.nu}
 \alias{draw.z}
 \alias{draw.omega}
-\alias{draw.logit.prior}
 \alias{draw.lambda}
-\alias{draw.lambda.prior}
 \alias{my.rinvgauss}
 \alias{calc.lpost}
 \alias{preprocess}
