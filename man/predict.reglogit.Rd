@@ -60,7 +60,7 @@ C. Holmes, K. Held (2006). \dQuote{Bayesian Auxilliary Variable Models for
 }
 
 \author{
-Robert B. Gramacy \email{rbgramacy@chicagobooth.edu}
+Robert B. Gramacy \email{rbg@vt.edu}
 }
 
 \seealso{

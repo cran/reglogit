@@ -17,7 +17,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #
-# Questions? Contact Robert B. Gramacy (rbgramacy@chicagobooth.edu)
+# Questions? Contact Robert B. Gramacy (rbg@vt.edu)
 #
 #*******************************************************************************
 
@@ -755,6 +755,9 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
     calc.mlpost(yX, map$beta, nu, kappa, kp, sigma, nup)
   if(!is.null(nus)) map$nu <- nu
 
+  ## initialize internal RNG
+  .C("newRNGstates")
+
   ## Gibbs sampling rounds
   for(t in 2:T) {
     
@@ -804,6 +807,9 @@ regmlogit <- function(T, y, X, flatten=FALSE, sigma=1, nu=1,
     }
       
   }
+
+  ## destroy internal RNG
+  .C("deleteRNGstates")
   
   ## un-normalize
   if(normalize) {

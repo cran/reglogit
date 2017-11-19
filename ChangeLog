@@ -1,3 +1,9 @@
+1.2-5 (17 Nov 2017)
+-----
+
+Updated to VT affiliation, and fixed random number seed
+bug in regmlogit
+
 1.2-4 (22 June 2015)
 -----
 

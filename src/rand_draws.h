@@ -3,8 +3,8 @@
 
 #include "randomkit.h"
 
-int NS;
-rk_state **states;
+extern int NS;
+extern rk_state** states;
 
 void newRNGstates(void);
 void deleteRNGstates(void);
@@ -18,3 +18,4 @@ double rexpo(double scale, rk_state* state);
 double expo_rand(rk_state *state);
 
 #endif
+

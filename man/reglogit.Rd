@@ -168,7 +168,7 @@ C. Holmes, K. Held (2006). \dQuote{Bayesian Auxilliary Variable Models for
    Binary and Multinomial Regression}. Bayesian Analysis, 1(1), p145-168. 
 }
 \author{
-Robert B. Gramacy \email{rbgramacy@chicagobooth.edu}
+Robert B. Gramacy \email{rbg@vt.edu}
 }
 
 \seealso{

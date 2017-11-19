@@ -15,3 +15,6 @@ import(
 # S3
 S3method(predict, reglogit)
 S3method(predict, regmlogit)
+
+## for CHECK
+importFrom("stats", "dlogis", "plogis", "rgamma", "rnorm", "runif")

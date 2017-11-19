@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301  USA
  *
- * Questions? Contact Robert B. Gramacy (rbgramacy@chicagobooth.edu)
+ * Questions? Contact Robert B. Gramacy (rbg@vt.edu)
  *
  ****************************************************************************/
 
@@ -32,6 +32,10 @@
   #include <omp.h>
 #endif 
 #include "rand_draws.h"
+
+
+int NS;
+rk_state **states;
 
 
 /* 
@@ -239,7 +243,6 @@ double rinvgauss(const double mu, const double lambda)
 double rtnorm_reject(double mean, double tau, double sd, rk_state* state)
 {
   double x, z, lambda;
-  int cnt;
 
   /* Christian Robert's way */
   assert(mean < tau);
@@ -249,7 +252,6 @@ double rtnorm_reject(double mean, double tau, double sd, rk_state* state)
   lambda = 0.5*(tau + sqrt(sq(tau) + 4.0));
 
   /* do the rejection sampling */
-  cnt = 0;
   do {
     z = rexpo(1.0/lambda, state) + tau;
   } while (runi(state) > exp(0.0-0.5*sq(z - lambda)));
@@ -261,3 +263,4 @@ double rtnorm_reject(double mean, double tau, double sd, rk_state* state)
   return(x);
 
 }
+

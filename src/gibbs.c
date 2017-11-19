@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
  * 02110-1301  USA
  *
- * Questions? Contact Robert B. Gramacy (rbgramacy@chicagobooth.edu)
+ * Questions? Contact Robert B. Gramacy (rbg@vt.edu)
  *
  ****************************************************************************/
 
@@ -113,7 +113,7 @@ double draw_lambda(double lambda_old, double xbeta,
  */
 
 double draw_lambda_zz(double lambda_old, double xbeta, 
-			       double kappa, int kmax, int thin, rk_state *state)
+                      double kappa, int kmax, int thin, rk_state *state)
 {
   int t, k;
   double lambda, lp, lpold, m, s;
@@ -164,30 +164,28 @@ void draw_lambda_R(int *n_in, double *xbeta_in, double *kappa_in,
 		   int *kl_in, int *kmax_in, int *zzero_in, 
 		   int *thin_in, int *tl_in, double *lambda_inout)
 {
-  int thin;
-  double kappa;
 
-  /* initial values */
-  kappa = *kappa_in;
-  thin = *thin_in;
-
-  #ifdef _OPENMP
+#ifdef _OPENMP
   #pragma omp parallel
   {
+  int thin;
+  double kappa;
   int i, start, step;
-  double aux[2];
-  double lambda_sqrt, xbeta;
   rk_state *state;
   start = omp_get_thread_num();
   step = omp_get_max_threads();
 #else 
+  int thin;
+  double kappa;
   int i, start, step;
-  double aux[2];
-  double lambda_sqrt, xbeta;
   rk_state *state;
   start = 0;
   step = 1;
 #endif
+
+  /* initial values */
+  kappa = *kappa_in;
+  thin = *thin_in;
 
   state = states[start];
 

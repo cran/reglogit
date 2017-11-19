@@ -25,10 +25,10 @@ LazyLoad: \tab yes\cr
 See the documentation for the \code{\link{reglogit}} function
 }
 \author{
-Robert B. Gramacy \email{rbgramacy@chicagobooth.edu}
+Robert B. Gramacy \email{rbg@vt.edu}
 
 
-Maintainer: Robert B. Gramacy \email{rbgramacy@chicagobooth.edu}
+Maintainer: Robert B. Gramacy \email{rbg@vt.edu}
 }
 \references{
 R.B. Gramacy, N.G. Polson. \dQuote{Simulation-based regularized
