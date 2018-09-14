@@ -1,5 +1,5 @@
-ecc56f666fb7964394e5771068e342d1 *ChangeLog
-3fd85d8bde070a301e7093587752d11f *DESCRIPTION
+4ce63188ba9465ddc8d98fac511b77a9 *ChangeLog
+fba53c554b953ab063f5d79b697530dd *DESCRIPTION
 537515f6515d739b635b767cde751dc0 *NAMESPACE
 6e8bda7daac5c20f62564e6d7c04a797 *R/dRUM.R
 a26e2d4e0b02bff1ea3f873e8259a2d0 *R/reglogit.R
@@ -10,7 +10,6 @@ aeb6606b6984fc27869fa187d8efbd93 *demo/spam_dRUM.R
 a1edf4c275302c9ccade67ff77de741e *man/pima.Rd
 8acfb817d57b22417d4201b0a543d6d7 *man/predict.reglogit.Rd
 c7aba797e80c666eef1a6de2a9014c30 *man/reglogit-internal.Rd
-18dc488a4956c72984fc22a14a1b4453 *man/reglogit-package.Rd
 f72a4c445e956736652dbe98f314bfd7 *man/reglogit.Rd
 77ed7a5db97042b2d171cd71f8062e84 *src/Makevars
 ab6da86fc995d80840ed3e63bf47f4da *src/gibbs.c

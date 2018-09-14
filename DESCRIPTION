@@ -1,8 +1,8 @@
 Package: reglogit
 Type: Package
 Title: Simulation-Based Regularized Logistic Regression
-Version: 1.2-5
-Date: 2017-11-17
+Version: 1.2-6
+Date: 2018-09-14
 Author: Robert B. Gramacy <rbg@vt.edu>
 Maintainer: Robert B. Gramacy <rbg@vt.edu>
 Depends: R (>= 2.14.0), methods, mvtnorm, boot, Matrix
@@ -17,6 +17,6 @@ License: LGPL
 URL: http://bobby.gramacy.com/r_packages/reglogit
 LazyLoad: yes
 NeedsCompilation: yes
-Packaged: 2017-11-18 03:02:06 UTC; bobby
+Packaged: 2018-09-14 15:32:59 UTC; bobby
 Repository: CRAN
-Date/Publication: 2017-11-19 18:22:50 UTC
+Date/Publication: 2018-09-14 17:40:03 UTC
