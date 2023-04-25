@@ -6,11 +6,11 @@
 */
 
 /* .C calls */
-extern void deleteRNGstates();
+extern void deleteRNGstates(void);
 extern void draw_lambda_R(void *, void *, void *, void *, void *, void *, void *, void *, void *);
 extern void draw_omega_R(void *, void *, void *, void *, void *);
 extern void draw_z_R(void *, void *, void *, void *, void *, void *, void *);
-extern void newRNGstates();
+extern void newRNGstates(void);
 extern void rinvgauss_R(void *, void *, void *, void *);
 
 static const R_CMethodDef CEntries[] = {

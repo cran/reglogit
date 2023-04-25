@@ -53,7 +53,7 @@
 \references{
 R.B. Gramacy, N.G. Polson. \dQuote{Simulation-based regularized
   logistic regression}. (2012) Bayesian Analysis, 7(3), p567-590; 
-  arXiv:1005.3430; \url{http://arxiv.org/abs/1005.3430}
+  arXiv:1005.3430; \url{https://arxiv.org/abs/1005.3430}
 
 C. Holmes, K. Held (2006). \dQuote{Bayesian Auxilliary Variable Models for
    Binary and Multinomial Regression}. Bayesian Analysis, 1(1), p145-168. 

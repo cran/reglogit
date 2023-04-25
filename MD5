@@ -1,5 +1,5 @@
-4ce63188ba9465ddc8d98fac511b77a9 *ChangeLog
-fba53c554b953ab063f5d79b697530dd *DESCRIPTION
+75b0146467a825fec8faffa318a469d7 *ChangeLog
+9d3240847149410a8f43cec218eb6cd3 *DESCRIPTION
 537515f6515d739b635b767cde751dc0 *NAMESPACE
 6e8bda7daac5c20f62564e6d7c04a797 *R/dRUM.R
 a26e2d4e0b02bff1ea3f873e8259a2d0 *R/reglogit.R
@@ -7,13 +7,13 @@ a26e2d4e0b02bff1ea3f873e8259a2d0 *R/reglogit.R
 741bf89280278ec80314272391df523c *demo/00Index
 772d315f77ab97cd7dc97d3386567afe *demo/pima_dRUM.R
 aeb6606b6984fc27869fa187d8efbd93 *demo/spam_dRUM.R
-a1edf4c275302c9ccade67ff77de741e *man/pima.Rd
-8acfb817d57b22417d4201b0a543d6d7 *man/predict.reglogit.Rd
+03437cc758fc9a138d477df9ca560cbd *man/pima.Rd
+47d7e5a596d70045c9eaba38be9b309d *man/predict.reglogit.Rd
 c7aba797e80c666eef1a6de2a9014c30 *man/reglogit-internal.Rd
-f72a4c445e956736652dbe98f314bfd7 *man/reglogit.Rd
+2c963f75803fae91804fbaf0a71c1750 *man/reglogit.Rd
 77ed7a5db97042b2d171cd71f8062e84 *src/Makevars
-ab6da86fc995d80840ed3e63bf47f4da *src/gibbs.c
-786aec4a9507f46b61a4ad2498c1cac8 *src/init.c
+a249588887a6065580821d80229afae7 *src/gibbs.c
+50f64e089cdce4090efce4d4c19c0f15 *src/init.c
 f18adbf375a4a282787edc48ee076013 *src/rand_draws.c
 b2e81c83e7edf69d2e18be2a213adc7e *src/rand_draws.h
 63f74271418b1fc76d4ffecdfb08dd5b *src/randomkit.c

@@ -166,7 +166,7 @@ void draw_lambda_R(int *n_in, double *xbeta_in, double *kappa_in,
 {
 
 #ifdef _OPENMP
-  #pragma omp parallel
+  #pragma omp parallel num_threads(2)
   {
   int thin;
   double kappa;
@@ -233,7 +233,7 @@ void draw_z_R(int *n_in, double *xbeta_in, double *beta_in,
   madj = 0.5*(1.0 - *kappa_in);
 
 #ifdef _OPENMP
-  #pragma omp parallel
+  #pragma omp parallel num_threads(2)
   {
   int i, start, step;
   double aux[2];

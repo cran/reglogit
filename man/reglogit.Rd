@@ -117,11 +117,11 @@ regmlogit(T, y, X, flatten = FALSE, sigma = 1, nu = 1, kappa = 1,
   framework for simulation-based regularized logistic regression.  The
   default arguments invoke a Gibbs sampling algorithm to sample from the
   posterior distribution of a logistic regression model with
-  lasso-type (double-exponential) priors.  See the paper by Gramacy \&
+  lasso-type (double-exponential) priors.  See the paper by Gramacy &
   Polson (2012) for details.  Both cdf and pdf implementations are
   provided, which use slightly different latent variable
   representations, resulting in slightly different Gibbs samplers.  These
-  methods extend the un-regularized methods of Holmes \& Held (2006)
+  methods extend the un-regularized methods of Holmes & Held (2006)
 
   The \code{kappa} parameter facilitates simulated annealing (SA)
   implementations in order to help find the MAP, and other point
@@ -133,7 +133,7 @@ regmlogit(T, y, X, flatten = FALSE, sigma = 1, nu = 1, kappa = 1,
   The \code{regmlogit} function is a wrapper around the Gibbs sampler
   inside \code{reglogit}, invoking \code{C-1} linked chains for \code{C}
   classes, extending the polychotomous regression scheme outlined by 
-  Holmes \& Held (2006).  For an example with \code{regmlogit}, see
+  Holmes & Held (2006).  For an example with \code{regmlogit}, see
   \code{\link{predict.regmlogit}}
 }
 \value{
@@ -162,7 +162,7 @@ an \code{array} or \code{matrix} as appropriate.
 \references{
 R.B. Gramacy, N.G. Polson. \dQuote{Simulation-based regularized
   logistic regression}. (2012) Bayesian Analysis, 7(3), p567-590; 
-  arXiv:1005.3430; \url{http://arxiv.org/abs/1005.3430}
+  arXiv:1005.3430; \url{https://arxiv.org/abs/1005.3430}
 
 C. Holmes, K. Held (2006). \dQuote{Bayesian Auxilliary Variable Models for
    Binary and Multinomial Regression}. Bayesian Analysis, 1(1), p145-168. 
